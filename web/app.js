@@ -146,23 +146,99 @@ function renderAnswer(el, ans) {
 }
 
 // ------------------------------------------------------------------ voix (le texte s'affiche d'abord)
-async function playVoice(el, text, lang, btn) {
-  let audio = el.querySelector("audio");
-  if (!audio) {
-    btn.disabled = true;
-    try {
-      const res = await api("/api/speak", { text, lang });
-      audio = document.createElement("audio");
-      audio.controls = true;
-      audio.src = URL.createObjectURL(await res.blob());
-      el.insertBefore(audio, el.querySelector(".actions"));
-      btn.remove();
-    } catch {
-      btn.disabled = false;
-      return;
+// La réponse est lue phrase par phrase : la 1re phrase est synthétisée et jouée tout de suite,
+// les suivantes se préparent pendant la lecture (2 requêtes au maximum en parallèle).
+
+// Un seul lecteur partagé, « déverrouillé » au premier geste de l'utilisateur :
+// sur iPhone/Android, il peut ensuite jouer sans nouveau clic (lecture automatique).
+const speaker = new Audio();
+let current = null;   // lecture en cours {stop}
+function unlockSpeaker() {
+  speaker.src = URL.createObjectURL(encodeWav([new Float32Array(1600)], 16000, 16000));
+  speaker.play().catch(() => {});
+  window.removeEventListener("pointerdown", unlockSpeaker);
+  window.removeEventListener("keydown", unlockSpeaker);
+}
+window.addEventListener("pointerdown", unlockSpeaker);
+window.addEventListener("keydown", unlockSpeaker);
+
+function speechChunks(text) {
+  const clean = String(text).replace(/\s*\[S\d+\](\s*,\s*\[S\d+\])*/g, "").replace(/[*#_`>|]/g, "")
+    .replace(/^\s*([-•]|\d+[.)])\s*/gm, "");
+  const sentences = clean.split(/(?<=[.!?;:])\s+|\n+/).map((x) => x.trim()).filter(Boolean);
+  const chunks = [];
+  for (const s of sentences) {
+    const last = chunks[chunks.length - 1];
+    // 1re phrase seule (démarrage rapide), puis morceaux d'environ 220 caractères
+    if (last !== undefined && (chunks.length > 1 || last.length < 25) && last.length + s.length < 220) {
+      chunks[chunks.length - 1] = `${/[.!?;:]$/.test(last) ? last : `${last}.`} ${s}`;
+    } else {
+      chunks.push(s);
     }
   }
-  audio.play().catch(() => {});   // lecture auto parfois bloquée sur mobile : le lecteur reste visible
+  return chunks;
+}
+
+function playVoice(el, text, lang, btn) {
+  const chunks = speechChunks(text);
+  if (!chunks.length) return;
+  const loads = [];
+  const load = (i) => {
+    if (i >= chunks.length) return null;
+    loads[i] ??= api("/api/speak", { text: chunks[i], lang })
+      .then((r) => r.blob()).then((b) => URL.createObjectURL(b)).catch(() => null);
+    return loads[i];
+  };
+
+  const box = document.createElement("div");
+  box.className = "voice-msg answer-voice";
+  box.innerHTML = `<button type="button" class="play" aria-label="Pause">…</button>
+    <div class="track"><div class="bar"></div></div><span class="time">1/${chunks.length}</span>`;
+  el.insertBefore(box, el.querySelector(".actions"));
+  btn.remove();
+  const playBtn = box.querySelector(".play"), bar = box.querySelector(".bar"), time = box.querySelector(".time");
+  let index = 0, playing = false, token = 0;
+
+  const show = (state) => {
+    playBtn.textContent = state === "play" ? "❚❚" : state === "wait" ? "…" : "▶";
+    playBtn.setAttribute("aria-label", state === "play" ? "Pause" : "Écouter");
+  };
+  const stop = () => { playing = false; token++; speaker.pause(); show("pause"); };
+
+  async function run() {
+    if (current && current.stop !== stop) current.stop();
+    current = { stop };
+    playing = true;
+    const my = ++token;
+    for (; index < chunks.length; index++) {
+      show("wait");
+      load(index + 1);                       // prépare déjà la phrase suivante
+      const url = await load(index);
+      if (my !== token) return;              // mis en pause pendant le chargement
+      if (!url) continue;                    // phrase sans voix : on passe
+      time.textContent = `${index + 1}/${chunks.length}`;
+      if (!speaker.src.endsWith(url)) speaker.src = url;
+      show("play");
+      const ended = new Promise((res) => { speaker.onended = res; speaker.onerror = res; });
+      try { await speaker.play(); } catch { if (my === token) stop(); return; }
+      await ended;
+      if (my !== token) return;
+      speaker.currentTime = 0;
+    }
+    playing = false;
+    index = 0;
+    bar.style.width = "0%";
+    time.textContent = `${chunks.length}/${chunks.length}`;
+    show("pause");
+  }
+
+  speaker.addEventListener("timeupdate", () => {
+    if (current?.stop === stop && speaker.duration) {
+      bar.style.width = `${((index + speaker.currentTime / speaker.duration) / chunks.length) * 100}%`;
+    }
+  });
+  playBtn.onclick = () => (playing ? stop() : run());
+  run();
 }
 
 // ------------------------------------------------------------------ fiche récapitulative

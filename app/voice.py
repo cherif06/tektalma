@@ -6,6 +6,7 @@ Ordre de synthèse :
 """
 import io
 import re
+import time
 import wave
 from functools import lru_cache
 
@@ -35,7 +36,7 @@ def transcribe(llm, audio_bytes: bytes, mime_type: str = "audio/wav", lang_hint:
 
 
 def speakable(text: str) -> str:
-    text = re.sub(r"\[S\d+\]", "", text)
+    text = re.sub(r"\s*\[S\d+\](\s*,\s*\[S\d+\])*", "", text)
     text = re.sub(r"[*#_`>|]", "", text)
     text = re.sub(r"^\s*[-•]\s*", "", text, flags=re.MULTILINE)
     return re.sub(r"\s+", " ", text).strip()[:1200]
@@ -126,18 +127,35 @@ def _oolel(text: str):
 WOLOF_ENGINES = ("oolel", "gemini")
 
 
+QUOTA_PAUSE = 600          # secondes sans Gemini TTS après un « quota épuisé »
+_gemini_paused_until = 0.0
+
+
+def _gemini_guarded(llm, text: str):
+    """Gemini TTS, mis en pause 10 min après un 429 : évite ~2 s perdues à chaque phrase."""
+    global _gemini_paused_until
+    if time.monotonic() < _gemini_paused_until:
+        raise RuntimeError("Gemini TTS en pause (quota)")
+    try:
+        return _gemini_tts(llm, text)
+    except Exception as e:
+        if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+            _gemini_paused_until = time.monotonic() + QUOTA_PAUSE
+        raise
+
+
 def speak(llm, text: str, lang: str):
     """Renvoie (audio, mime) ou (None, None) si aucune voix n'est disponible."""
     clean = speakable(text)
     if not clean:
         return None, None
     if lang == "wo":
-        runners = {"oolel": lambda: _oolel(clean), "gemini": lambda: _gemini_tts(llm, clean)}
+        runners = {"oolel": lambda: _oolel(clean), "gemini": lambda: _gemini_guarded(llm, clean)}
         first = settings.WOLOF_TTS if settings.WOLOF_TTS in runners else "gemini"
         order = [first] + [e for e in WOLOF_ENGINES if e != first]
         engines = [runners[e] for e in order]
     else:
-        engines = [lambda: _gemini_tts(llm, clean), lambda: _gtts(clean, lang if lang in ("fr", "en") else "fr")]
+        engines = [lambda: _gemini_guarded(llm, clean), lambda: _gtts(clean, lang if lang in ("fr", "en") else "fr")]
     for engine in engines:
         try:
             return engine()
