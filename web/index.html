@@ -47,6 +47,8 @@
       <label class="toggle"><input type="checkbox" id="voice" checked> 🔊 Voix</label>
     </div>
     <form id="form" class="composer" autocomplete="off">
+      <button type="button" id="cancel" class="cancel" hidden aria-label="Annuler l'enregistrement" title="Annuler (Échap)">✕</button>
+      <span id="recinfo" class="recinfo" hidden aria-live="off"><i></i><span id="rectime">0:00</span><small>Maa ngi déglu… · Appuyez sur ➤ pour envoyer</small></span>
       <input id="input" type="text" placeholder="Bindal sa laaj… · Écrivez votre question…" maxlength="1000"
              aria-label="Votre question">
       <button type="submit" id="send" class="send" aria-label="Envoyer">➤</button>

@@ -289,6 +289,8 @@ async function makeChecklist(el, questionFr, lang, btn) {
 // (WAV plutôt que webm/mp4 : accepté partout par Gemini, identique sur Android et iPhone)
 let recorder = null;
 
+const cancelBtn = $("#cancel"), recInfo = $("#recinfo"), recTime = $("#rectime");
+
 async function startRecording() {
   let stream;
   try {
@@ -297,6 +299,7 @@ async function startRecording() {
     setStatus("Micro indisponible : autorisez l'accès au micro (HTTPS requis).", true);
     return;
   }
+  current?.stop();                          // coupe la voix de la réponse pour ne pas l'enregistrer
   const ctx = new (window.AudioContext || window.webkitAudioContext)();
   const src = ctx.createMediaStreamSource(stream);
   const node = ctx.createScriptProcessor(4096, 1, 1);
@@ -305,23 +308,54 @@ async function startRecording() {
   src.connect(node);
   node.connect(ctx.destination);
   recorder = { stream, ctx, node, src, chunks, started: Date.now() };
-  micBtn.classList.add("rec");
-  micBtn.setAttribute("aria-label", "Arrêter l'enregistrement");
-  setStatus("🎙️ Maa ngi déglu… · Parlez, puis appuyez à nouveau");
   recorder.timeout = setTimeout(stopRecording, 60000);
+  recorder.clock = setInterval(() => {
+    const s = Math.floor((Date.now() - recorder.started) / 1000);
+    recTime.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  }, 250);
+  recTime.textContent = "0:00";
+  showRecordingUI(true);
+  setStatus("");
+}
+
+function showRecordingUI(on) {
+  form.classList.toggle("recording", on);
+  input.hidden = on;
+  $("#send").hidden = on;
+  cancelBtn.hidden = !on;
+  recInfo.hidden = !on;
+  micBtn.classList.toggle("rec", on);
+  micBtn.setAttribute("aria-label", on ? "Envoyer le message vocal" : "Parler");
+  micBtn.innerHTML = on ? "➤" : MIC_ICON;
+  if (on) cancelBtn.focus();
+}
+
+/** Arrête le micro. Renvoie les données enregistrées. */
+async function releaseRecorder() {
+  const r = recorder;
+  if (!r) return null;
+  recorder = null;
+  clearTimeout(r.timeout);
+  clearInterval(r.clock);
+  r.node.disconnect(); r.src.disconnect();
+  r.stream.getTracks().forEach((tr) => tr.stop());
+  r.rate = r.ctx.sampleRate;
+  await r.ctx.close();
+  showRecordingUI(false);
+  return r;
+}
+
+/** Interrompt l'enregistrement en cours : rien n'est envoyé. */
+async function cancelRecording() {
+  if (!(await releaseRecorder())) return;
+  setStatus("Enregistrement annulé.");
+  micBtn.focus();
 }
 
 async function stopRecording() {
-  const r = recorder;
+  const r = await releaseRecorder();
   if (!r) return;
-  recorder = null;
-  clearTimeout(r.timeout);
-  r.node.disconnect(); r.src.disconnect();
-  r.stream.getTracks().forEach((tr) => tr.stop());
-  const rate = r.ctx.sampleRate;
-  await r.ctx.close();
-  micBtn.classList.remove("rec");
-  micBtn.setAttribute("aria-label", "Parler");
+  const rate = r.rate;
   if (Date.now() - r.started < 700) { setStatus("Appuyez, parlez, puis appuyez à nouveau."); return; }
 
   setBusy(true);
@@ -394,7 +428,10 @@ function encodeWav(chunks, inRate, outRate) {
 }
 
 // ------------------------------------------------------------------ événements
+const MIC_ICON = micBtn.innerHTML;
 micBtn.addEventListener("click", () => (recorder ? stopRecording() : busy ? null : startRecording()));
+cancelBtn.addEventListener("click", cancelRecording);
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && recorder) cancelRecording(); });
 form.addEventListener("submit", (e) => {
   e.preventDefault();
   const q = input.value;

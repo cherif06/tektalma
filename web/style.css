@@ -4,6 +4,7 @@
   color-scheme:dark;
 }
 *{box-sizing:border-box}
+[hidden]{display:none !important}
 html,body{height:100%}
 body{margin:0; font:16px/1.55 Manrope, system-ui, sans-serif; color:var(--ivory);
   background:
@@ -121,3 +122,13 @@ button:disabled{opacity:.5; cursor:wait}
 .voice-msg.answer-voice{margin-top:10px; padding:8px 10px; border:1px solid var(--line); border-radius:999px; background:rgba(238,241,247,.04)}
 .voice-msg.answer-voice.off{border-style:dashed}
 .voice-msg .novoice{font-size:.82rem; color:var(--muted); padding:2px 6px}
+
+/* --- enregistrement en cours : annuler / durée / envoyer --- */
+.cancel{flex:none; width:44px; height:44px; border-radius:50%; border:1px solid rgba(228,87,46,.6);
+  background:rgba(228,87,46,.12); color:#FF9B80; font-size:1.1rem}
+.cancel:hover{background:rgba(228,87,46,.25)}
+.recinfo{flex:1; min-width:0; display:flex; align-items:center; gap:8px; padding:0 6px; font-variant-numeric:tabular-nums}
+.recinfo i{width:10px; height:10px; border-radius:50%; background:var(--clay); animation:blink 1s infinite; flex:none}
+.recinfo small{color:var(--muted); font-size:.78rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+@keyframes blink{50%{opacity:.25}}
+.mic.rec{font-size:1.3rem}
