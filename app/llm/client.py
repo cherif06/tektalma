@@ -20,17 +20,16 @@ class LLMClient:
     def _call(self, models, contents, config):
         last_error = None
         for model in models:
-            for attempt in range(3):
+            for attempt in range(2):
                 try:
                     return self.client.models.generate_content(
                         model=model, contents=contents, config=config)
                 except Exception as e:  # noqa: BLE001
                     last_error = e
-                    code = getattr(e, "code", None)
-                    if code in RETRYABLE or code is None:
-                        time.sleep(1.5 * (attempt + 1))
+                    if getattr(e, "code", None) in RETRYABLE and attempt == 0:
+                        time.sleep(1.0)
                         continue
-                    break  # erreur non temporaire : modèle suivant
+                    break  # erreur non temporaire ou 2e échec : modèle suivant
         raise RuntimeError(f"LLM indisponible : {last_error}")
 
     def generate(self, contents, system: str | None = None,

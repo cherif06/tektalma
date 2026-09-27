@@ -11,3 +11,6 @@ pyyaml
 gTTS
 gradio_client
 reportlab
+fastapi>=0.115
+uvicorn[standard]>=0.30
+python-multipart

@@ -1,0 +1,10 @@
+.env
+.git
+.github
+.idea
+.venv
+**/__pycache__
+**/*.pyc
+data/vectorstore/*
+data/voice_tests
+tests

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>TEKTALMA AI</title>
+  <meta name="description" content="Assistant vocal des démarches administratives au Sénégal — wolof, français, anglais.">
+  <meta name="theme-color" content="#0A1430">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=Manrope:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <div class="orb small" aria-hidden="true"><span></span><span></span><span></span><i></i></div>
+      <div><strong>TEKTALMA</strong><small>Démarches administratives du Sénégal</small></div>
+    </div>
+    <button id="reset" class="ghost" title="Nouvelle conversation" aria-label="Nouvelle conversation">↺</button>
+  </header>
+
+  <main id="chat" aria-live="polite">
+    <section id="hero" class="hero">
+      <div class="orb" aria-hidden="true"><span></span><span></span><span></span><i></i></div>
+      <h1>TEKTALMA</h1>
+      <p class="wo">Na nga def ? Waxal sa laaj, ma tontu la.</p>
+      <p class="fr">Carte d'identité, passeport, état civil : posez votre question à voix haute
+        ou par écrit, en wolof, en français ou en anglais. Les réponses viennent des sites officiels de l'État.</p>
+      <div class="examples" id="examples"></div>
+    </section>
+  </main>
+
+  <footer class="dock">
+    <div class="controls">
+      <div class="seg" role="radiogroup" aria-label="Langue de réponse" id="langs">
+        <button role="radio" data-lang="" aria-checked="true">Auto</button>
+        <button role="radio" data-lang="wo" aria-checked="false">Wolof</button>
+        <button role="radio" data-lang="fr" aria-checked="false">Français</button>
+        <button role="radio" data-lang="en" aria-checked="false">English</button>
+      </div>
+      <label class="toggle"><input type="checkbox" id="voice" checked> 🔊 Voix</label>
+    </div>
+    <form id="form" class="composer" autocomplete="off">
+      <input id="input" type="text" placeholder="Bindal sa laaj… · Écrivez votre question…" maxlength="1000"
+             aria-label="Votre question">
+      <button type="submit" id="send" class="send" aria-label="Envoyer">➤</button>
+      <button type="button" id="mic" class="mic" aria-label="Parler">
+        <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path fill="currentColor" d="M12 14a3 3 0 0 0 3-3V5a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2Z"/></svg>
+      </button>
+    </form>
+    <p id="status" class="status" role="status"></p>
+  </footer>
+  <script src="/app.js" defer></script>
+</body>
+</html>
