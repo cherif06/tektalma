@@ -90,12 +90,12 @@ function bubble(role, html, cls = "") {
 }
 
 // ------------------------------------------------------------------ question -> réponse
-async function ask(question) {
+async function ask(question, { spoken = false } = {}) {
   question = question.trim();
-  if (!question || busy) return;
+  if (!question || (busy && !spoken)) return;
   setBusy(true);
   setStatus("");
-  bubble("user", md(question));
+  if (!spoken) bubble("user", md(question));   // question vocale : la bulle audio est déjà affichée
   const pending = bubble("assistant", `<span class="dots">${esc(t("thinking", forcedLang))}</span>`, "pending");
   try {
     const res = await api("/api/ask", { question, history: history.slice(-6), lang: forcedLang || null });
@@ -239,19 +239,52 @@ async function stopRecording() {
   if (Date.now() - r.started < 700) { setStatus("Appuyez, parlez, puis appuyez à nouveau."); return; }
 
   setBusy(true);
+  const wav = encodeWav(r.chunks, rate, 16000);
+  const userEl = voiceBubble(wav, (Date.now() - r.started) / 1000);
   setStatus("Maa ngi déglu… · Transcription…");
   try {
     const fd = new FormData();
-    fd.append("audio", encodeWav(r.chunks, rate, 16000), "question.wav");
+    fd.append("audio", wav, "question.wav");
     if (forcedLang) fd.append("lang", forcedLang);
     const { text } = await (await api("/api/transcribe", fd)).json();
-    setBusy(false);
-    setStatus("");
-    if (text) await ask(text);
+    if (!text) throw new Error("transcription vide");
+    await ask(text, { spoken: true });   // le texte sert à l'IA, pas à l'affichage
   } catch {
+    userEl.classList.add("failed");
     setBusy(false);
-    setStatus("Transcription indisponible : écrivez votre question.", true);
+    setStatus("Transcription indisponible : réessayez ou écrivez votre question.", true);
   }
+}
+
+/** Bulle « message vocal » : bouton lecture, barre de progression, durée. */
+function voiceBubble(blob, seconds) {
+  const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+  const el = bubble("user", `<div class="voice-msg">
+      <button type="button" class="play" aria-label="Écouter le message">▶</button>
+      <div class="track"><div class="bar"></div></div>
+      <span class="time">${fmt(seconds)}</span></div>`, "voice");
+  const audio = new Audio(URL.createObjectURL(blob));
+  const btn = el.querySelector(".play"), bar = el.querySelector(".bar"), time = el.querySelector(".time");
+  const reset = () => { btn.textContent = "▶"; btn.setAttribute("aria-label", "Écouter le message"); };
+  btn.onclick = () => {
+    if (audio.paused) {
+      document.querySelectorAll("audio").forEach((a) => a.pause());
+      audio.play().then(() => { btn.textContent = "❚❚"; btn.setAttribute("aria-label", "Pause"); }).catch(reset);
+    } else {
+      audio.pause();
+      reset();
+    }
+  };
+  audio.ontimeupdate = () => {
+    bar.style.width = `${Math.min(100, (audio.currentTime / seconds) * 100)}%`;
+    time.textContent = fmt(audio.currentTime);
+  };
+  audio.onended = () => { reset(); bar.style.width = "0%"; time.textContent = fmt(seconds); };
+  el.querySelector(".track").onclick = (e) => {   // clic sur la barre = se déplacer dans l'audio
+    const box = e.currentTarget.getBoundingClientRect();
+    audio.currentTime = ((e.clientX - box.left) / box.width) * seconds;
+  };
+  return el;
 }
 
 function encodeWav(chunks, inRate, outRate) {

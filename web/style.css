@@ -107,3 +107,14 @@ button:focus-visible{outline:2px solid var(--gold); outline-offset:2px}
 button:disabled{opacity:.5; cursor:wait}
 .status{min-height:1.2em; margin:6px auto 0; font-size:.8rem; color:var(--muted); text-align:center}
 .status.err{color:#FF9B80}
+
+/* --- message vocal de l'utilisateur --- */
+.msg.voice{min-width:220px}
+.voice-msg{display:flex; align-items:center; gap:10px}
+.voice-msg .play{flex:none; width:38px; height:38px; border-radius:50%; border:none; font-size:.85rem;
+  background:var(--gold); color:#1B2235; display:grid; place-items:center}
+.voice-msg .track{flex:1; height:6px; border-radius:3px; background:rgba(238,241,247,.18); cursor:pointer; overflow:hidden}
+.voice-msg .bar{height:100%; width:0; background:var(--gold); transition:width .15s linear}
+.voice-msg .time{flex:none; font-size:.8rem; color:var(--muted); font-variant-numeric:tabular-nums}
+.msg.voice.failed{border-color:rgba(228,87,46,.6)}
+.msg.voice.failed::after{content:"⚠︎ non envoyé"; display:block; margin-top:6px; font-size:.75rem; color:#FF9B80}
