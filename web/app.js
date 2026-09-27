@@ -14,6 +14,8 @@ const UI = {
   fiche: { wo: "📋 Defar sama fiche", fr: "📋 Générer ma fiche", en: "📋 Create my checklist" },
   download: { wo: "⬇️ Wàcce fiche bi (PDF)", fr: "⬇️ Télécharger la fiche (PDF)", en: "⬇️ Download checklist (PDF)" },
   listen: { wo: "🔊 Déglu", fr: "🔊 Écouter", en: "🔊 Listen" },
+  // ⚠️ wolof à faire relire
+  noVoice: { wo: "🔇 Baat bi amul fi léegi", fr: "🔇 Voix indisponible pour le moment", en: "🔇 Voice unavailable right now" },
   thinking: { wo: "Maa ngi seet ci sources officielles yi", fr: "Recherche dans les sources officielles", en: "Searching official sources" },
 };
 const LABELS = {
@@ -215,7 +217,15 @@ function playVoice(el, text, lang, btn) {
       load(index + 1);                       // prépare déjà la phrase suivante
       const url = await load(index);
       if (my !== token) return;              // mis en pause pendant le chargement
-      if (!url) continue;                    // phrase sans voix : on passe
+      if (!url) {
+        if (index === 0) {                   // aucune voix disponible (quotas) : on le dit
+          box.innerHTML = `<span class="novoice">${esc(t("noVoice", lang))}</span>`;
+          box.classList.add("off");
+          if (current?.stop === stop) current = null;
+          return;
+        }
+        continue;                            // une phrase isolée sans voix : on passe
+      }
       time.textContent = `${index + 1}/${chunks.length}`;
       if (!speaker.src.endsWith(url)) speaker.src = url;
       show("play");

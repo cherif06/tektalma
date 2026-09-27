@@ -127,20 +127,20 @@ def _oolel(text: str):
 WOLOF_ENGINES = ("oolel", "gemini")
 
 
-QUOTA_PAUSE = 600          # secondes sans Gemini TTS après un « quota épuisé »
-_gemini_paused_until = 0.0
+QUOTA_PAUSE = 600          # secondes sans un moteur après un « quota épuisé »
+QUOTA_MARKERS = ("429", "RESOURCE_EXHAUSTED", "quota")
+_paused_until = {}         # moteur -> fin de la pause
 
 
-def _gemini_guarded(llm, text: str):
-    """Gemini TTS, mis en pause 10 min après un 429 : évite ~2 s perdues à chaque phrase."""
-    global _gemini_paused_until
-    if time.monotonic() < _gemini_paused_until:
-        raise RuntimeError("Gemini TTS en pause (quota)")
+def _guarded(name: str, run):
+    """Moteur mis en pause 10 min après un quota épuisé : évite 2 à 4 s perdues à chaque phrase."""
+    if time.monotonic() < _paused_until.get(name, 0.0):
+        raise RuntimeError(f"{name} en pause (quota)")
     try:
-        return _gemini_tts(llm, text)
+        return run()
     except Exception as e:
-        if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
-            _gemini_paused_until = time.monotonic() + QUOTA_PAUSE
+        if any(m in str(e) for m in QUOTA_MARKERS):
+            _paused_until[name] = time.monotonic() + QUOTA_PAUSE
         raise
 
 
@@ -150,12 +150,13 @@ def speak(llm, text: str, lang: str):
     if not clean:
         return None, None
     if lang == "wo":
-        runners = {"oolel": lambda: _oolel(clean), "gemini": lambda: _gemini_guarded(llm, clean)}
+        runners = {"oolel": lambda: _guarded("oolel", lambda: _oolel(clean)),
+                   "gemini": lambda: _guarded("gemini", lambda: _gemini_tts(llm, clean))}
         first = settings.WOLOF_TTS if settings.WOLOF_TTS in runners else "gemini"
         order = [first] + [e for e in WOLOF_ENGINES if e != first]
         engines = [runners[e] for e in order]
     else:
-        engines = [lambda: _gemini_guarded(llm, clean), lambda: _gtts(clean, lang if lang in ("fr", "en") else "fr")]
+        engines = [lambda: _guarded("gemini", lambda: _gemini_tts(llm, clean)), lambda: _gtts(clean, lang if lang in ("fr", "en") else "fr")]
     for engine in engines:
         try:
             return engine()

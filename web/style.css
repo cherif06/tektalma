@@ -119,3 +119,5 @@ button:disabled{opacity:.5; cursor:wait}
 .msg.voice.failed{border-color:rgba(228,87,46,.6)}
 .msg.voice.failed::after{content:"⚠︎ non envoyé"; display:block; margin-top:6px; font-size:.75rem; color:#FF9B80}
 .voice-msg.answer-voice{margin-top:10px; padding:8px 10px; border:1px solid var(--line); border-radius:999px; background:rgba(238,241,247,.04)}
+.voice-msg.answer-voice.off{border-style:dashed}
+.voice-msg .novoice{font-size:.82rem; color:var(--muted); padding:2px 6px}

@@ -1,5 +1,5 @@
 // Service worker : l'interface s'ouvre instantanément (et hors ligne) ; l'API passe toujours par le réseau.
-const CACHE = "tektalma-v3";
+const CACHE = "tektalma-v4";
 const SHELL = ["/", "/index.html", "/style.css", "/app.js", "/manifest.json", "/icon.svg", "/icon-192.png", "/icon-512.png"];
 
 self.addEventListener("install", (e) => {
