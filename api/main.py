@@ -2,6 +2,7 @@
 import base64
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Annotated
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import Response
@@ -40,6 +41,9 @@ def get_engine(request: Request):
     return request.app.state.engine
 
 
+Engine = Annotated[object, Depends(get_engine)]
+
+
 def _lang(value: str | None) -> str | None:
     return value if value in LANGS else None
 
@@ -72,7 +76,7 @@ def _routes(app: FastAPI):
         return {"status": "ok"}
 
     @app.post("/api/ask")
-    def ask(body: AskIn, engine=Depends(get_engine)):
+    def ask(body: AskIn, engine: Engine):
         ans = engine.ask(body.question, [h.model_dump() for h in body.history],
                          force_lang=_lang(body.lang))
         return {"text": ans.text, "kind": ans.kind, "language": ans.language,
@@ -80,8 +84,8 @@ def _routes(app: FastAPI):
                 "can_checklist": ans.kind == "answer" and bool(ans.docs)}
 
     @app.post("/api/transcribe")
-    async def transcribe(audio: UploadFile = File(...), lang: str | None = Form(None),
-                         engine=Depends(get_engine)):
+    async def transcribe(audio: Annotated[UploadFile, File()], engine: Engine,
+                         lang: Annotated[str | None, Form()] = None):
         data = await audio.read()
         if not data:
             raise HTTPException(400, "Audio vide")
@@ -95,14 +99,14 @@ def _routes(app: FastAPI):
         return {"text": text}
 
     @app.post("/api/speak")
-    def speak(body: SpeakIn, engine=Depends(get_engine)):
+    def speak(body: SpeakIn, engine: Engine):
         audio, mime = voice.speak(engine.llm, body.text, _lang(body.lang) or "fr")
         if not audio:
             raise HTTPException(503, "Voix indisponible")
         return Response(audio, media_type=mime)
 
     @app.post("/api/checklist")
-    def checklist(body: ChecklistIn, engine=Depends(get_engine)):
+    def checklist(body: ChecklistIn, engine: Engine):
         lang = _lang(body.lang) or "fr"
         # On relit les fiches côté serveur : le client n'envoie jamais le contexte au LLM.
         docs = engine.retriever.search(body.question_fr)
