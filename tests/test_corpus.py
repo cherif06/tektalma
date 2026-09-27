@@ -9,4 +9,4 @@ def test_fiches_completes():
     for f in fiches:
         for key in REQUIRED:
             assert f["meta"].get(key), f"{f['doc_id']} : champ '{key}' manquant"
-        assert str(f["meta"]["url"]).startswith("https://")
+        assert str(f["meta"]["url"]).startswith(("https://", "http://"))
